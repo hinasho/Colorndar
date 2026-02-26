@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="theme-color" content="#ffffff">
+    <meta name="description" content="iCalendar色分けシフトカレンダー">
+    <title>Colorndar</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div id="app">
+        <header id="header">
+            <div class="header-top">
+                <h1 class="app-title">Colorndar</h1>
+                <button id="settings-toggle" class="icon-btn" aria-label="設定">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="3" />
+                        <path
+                            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                    </svg>
+                </button>
+            </div>
+            <div class="month-nav">
+                <button id="prev-month" class="nav-btn" aria-label="前月"><svg width="20" height="20" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <polyline points="15 18 9 12 15 6" />
+                    </svg></button>
+                <div class="month-info"><span id="month-title" class="month-title"></span><span id="month-range"
+                        class="month-range"></span></div>
+                <button id="next-month" class="nav-btn" aria-label="次月"><svg width="20" height="20" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <polyline points="9 18 15 12 9 6" />
+                    </svg></button>
+            </div>
+            <div class="update-bar">
+                <span id="last-update" class="last-update"></span>
+                <button id="refresh-btn" class="refresh-btn" aria-label="更新"><svg width="16" height="16"
+                        viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <polyline points="23 4 23 10 17 10" />
+                        <polyline points="1 20 1 14 7 14" />
+                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                    </svg><span>更新</span></button>
+            </div>
+        </header>
+        <main id="calendar-container">
+            <div class="weekday-header">
+                <span class="weekday sun">日</span><span class="weekday">月</span><span class="weekday">火</span><span
+                    class="weekday">水</span><span class="weekday">木</span><span class="weekday">金</span><span
+                    class="weekday sat">土</span>
+            </div>
+            <div id="calendar-grid" class="calendar-grid"></div>
+        </main>
+        <div id="event-detail-modal" class="modal-overlay hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 id="modal-date-title"></h2><button id="modal-close" class="icon-btn" aria-label="閉じる"><svg
+                            width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg></button>
+                </div>
+                <div id="modal-events-list" class="modal-events-list"></div>
+            </div>
+        </div>
+        <div id="settings-panel" class="settings-panel hidden">
+            <div class="settings-inner">
+                <div class="settings-header">
+                    <h2>設定</h2><button id="settings-close" class="icon-btn" aria-label="閉じる"><svg width="20" height="20"
+                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg></button>
+                </div>
+                <section class="settings-section">
+                    <h3>📂 iCalデータソース</h3>
+                    <div class="input-group"><label for="ical-url">iCal URL</label>
+                        <div class="url-input-row"><input type="url" id="ical-url"
+                                placeholder="https://example.com/calendar.ics" /><button id="load-url-btn"
+                                class="action-btn">取得</button></div>
+                    </div>
+                    <div class="input-group"><label for="ical-file">ファイル選択</label><input type="file" id="ical-file"
+                            accept=".ics,.ical,.ifb,.icalendar" /></div>
+                </section>
+                <section class="settings-section">
+                    <h3>🎨 色分けルール</h3>
+                    <div id="color-rules-list" class="color-rules-list"></div>
+                    <button id="add-rule-btn" class="action-btn add-rule-btn">+ ルール追加</button>
+                </section>
+                <section class="settings-section">
+                    <h3>⏱ 更新設定</h3>
+                    <div class="input-group"><label for="update-interval">自動更新間隔</label><select id="update-interval">
+                            <option value="10">10分</option>
+                            <option value="30" selected>30分</option>
+                            <option value="60">60分</option>
+                            <option value="0">自動更新しない</option>
+                        </select></div>
+                </section>
+            </div>
+        </div>
+        <div id="rule-edit-modal" class="modal-overlay hidden">
+            <div class="modal-content rule-edit-content">
+                <div class="modal-header">
+                    <h2 id="rule-edit-title">ルール編集</h2><button id="rule-edit-close" class="icon-btn"
+                        aria-label="閉じる"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg></button>
+                </div>
+                <div class="rule-edit-body">
+                    <div class="input-group"><label for="rule-color">色</label><input type="color" id="rule-color"
+                            value="#ef4444" /></div>
+                    <div class="input-group"><label for="rule-label">ラベル</label><input type="text" id="rule-label"
+                            placeholder="例: 休み" /></div>
+                    <div class="input-group"><label for="rule-keywords">キーワード（カンマ区切り）</label><input type="text"
+                            id="rule-keywords" placeholder="例: 休み, 休日, 休暇" /></div>
+                    <div class="rule-edit-actions"><button id="rule-save-btn"
+                            class="action-btn primary">保存</button><button id="rule-cancel-btn"
+                            class="action-btn">キャンセル</button></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="app.js"></script>
+</body>
+
+</html>
