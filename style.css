@@ -41,18 +41,22 @@ body {
     background: var(--bg-primary);
     color: var(--text-primary);
     min-height: 100dvh;
+    min-height: -webkit-fill-available;
     overscroll-behavior: none;
+    overflow: hidden;
     -webkit-font-smoothing: antialiased;
 }
 
 #app {
     max-width: 430px;
     margin: 0 auto;
-    min-height: 100dvh;
+    height: 100dvh;
+    height: -webkit-fill-available;
     display: flex;
     flex-direction: column;
     padding-top: var(--safe-top);
     padding-bottom: var(--safe-bottom);
+    overflow: hidden;
 }
 
 /* Header */
