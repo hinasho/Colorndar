@@ -227,6 +227,14 @@ function showToast(msg) {
     setTimeout(() => { t.classList.add('fade-out'); setTimeout(() => t.remove(), 300); }, 2500);
 }
 
+function showUpdateToast() {
+    const ex = document.querySelector('.update-toast'); if (ex) return;
+    const t = document.createElement('div');
+    t.className = 'update-toast';
+    t.innerHTML = '🔄 新しいバージョンがあります <button onclick="location.reload()">更新</button>';
+    document.body.appendChild(t);
+}
+
 // ===== Init: Instant render + background data load =====
 function initApp() {
     // Phase 1: 即座描画（localStorageキャッシュ優先）
@@ -300,9 +308,26 @@ function setupEventListeners() {
     calendarGridEl.addEventListener('touchend', e => { const d = touchStartX - e.changedTouches[0].screenX; if (Math.abs(d) > 60) { if (d > 0) { currentMonth.month++; if (currentMonth.month > 12) { currentMonth.month = 1; currentMonth.year++; } } else { currentMonth.month--; if (currentMonth.month < 1) { currentMonth.month = 12; currentMonth.year--; } } renderMonth(); } }, { passive: true });
 }
 
-// Register Service Worker
+// Register Service Worker + detect updates
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').catch(() => { });
+    navigator.serviceWorker.register('sw.js').then(reg => {
+        // 新しいSWがインストールされた時
+        reg.addEventListener('updatefound', () => {
+            const newWorker = reg.installing;
+            if (!newWorker) return;
+            newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'activated' && navigator.serviceWorker.controller) {
+                    showUpdateToast();
+                }
+            });
+        });
+        // 起動時に更新チェック
+        reg.update().catch(() => {});
+    }).catch(() => { });
+    // コントローラー切替時もリロード促進
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+        showUpdateToast();
+    });
 }
 
 // Start
