@@ -223,7 +223,7 @@ body {
 }
 
 .day-cell {
-    min-height: 72px;
+    min-height: 90px;
     background: transparent;
     padding: 2px 2px 1px;
     display: flex;

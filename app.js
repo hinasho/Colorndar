@@ -140,7 +140,7 @@ const $ = id => document.getElementById(id);
 const monthTitleEl = $('month-title'), monthRangeEl = $('month-range'), prevBtn = $('prev-month'), nextBtn = $('next-month'), calendarGridEl = $('calendar-grid'), refreshBtn = $('refresh-btn'), lastUpdateEl = $('last-update'), settingsToggle = $('settings-toggle'), settingsPanel = $('settings-panel'), settingsClose = $('settings-close'), icalUrlInput = $('ical-url'), loadUrlBtn = $('load-url-btn'), icalFileInput = $('ical-file'), colorRulesListEl = $('color-rules-list'), addRuleBtn = $('add-rule-btn'), updateIntervalSelect = $('update-interval'), eventDetailModal = $('event-detail-modal'), modalDateTitle = $('modal-date-title'), modalEventsList = $('modal-events-list'), modalCloseBtn = $('modal-close'), ruleEditModal = $('rule-edit-modal'), ruleEditTitleEl = $('rule-edit-title'), ruleColorInput = $('rule-color'), ruleLabelInput = $('rule-label'), ruleKeywordsInput = $('rule-keywords'), ruleSaveBtn = $('rule-save-btn'), ruleCancelBtn = $('rule-cancel-btn'), ruleEditCloseBtn = $('rule-edit-close');
 
 function renderMonth() {
-    monthTitleEl.textContent = currentMonth.month + '月度';
+    monthTitleEl.textContent = currentMonth.year + '年 ' + currentMonth.month + '月度';
     const { start, end } = getShiftMonthRange(currentMonth.year, currentMonth.month);
     monthRangeEl.textContent = (start.getMonth() + 1) + '/' + start.getDate() + ' 〜 ' + (end.getMonth() + 1) + '/' + end.getDate();
     const g = generateCalendarGrid(currentMonth.year, currentMonth.month);
