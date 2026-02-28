@@ -91,6 +91,49 @@ function parseIcalDate(ds) {
 }
 function normalizeEvent(raw) { const s = parseIcalDate(raw.dtstart), e = parseIcalDate(raw.dtend); return { uid: raw.uid || Math.random().toString(36).substr(2, 9), summary: raw.summary || '(無題)', description: raw.description || '', location: raw.location || '', start: s?.date || null, end: e?.date || null, allDay: s?.allDay || false }; }
 
+// ===== Japanese Holidays =====
+function getVernalEquinox(y) { return Math.floor(20.8431 + 0.242194 * (y - 1980) - Math.floor((y - 1980) / 4)); }
+function getAutumnalEquinox(y) { return Math.floor(23.2488 + 0.242194 * (y - 1980) - Math.floor((y - 1980) / 4)); }
+function nthWeekday(y, m, dow, n) { const first = new Date(y, m - 1, 1).getDay(); let d = 1 + ((dow - first + 7) % 7) + (n - 1) * 7; return d; }
+function getJapaneseHolidays(year) {
+    const h = new Set();
+    const add = (m, d) => h.add(m + '/' + d);
+    add(1, 1);  // 元日
+    add(1, nthWeekday(year, 1, 1, 2));  // 成人の日
+    add(2, 11); // 建国記念日
+    add(2, 23); // 天皇誕生日
+    add(3, getVernalEquinox(year)); // 春分の日
+    add(4, 29); // 昭和の日
+    add(5, 3);  // 憲法記念日
+    add(5, 4);  // みどりの日
+    add(5, 5);  // こどもの日
+    add(7, nthWeekday(year, 7, 1, 3));  // 海の日
+    add(8, 11); // 山の日
+    add(9, nthWeekday(year, 9, 1, 3));  // 敬老の日
+    add(9, getAutumnalEquinox(year)); // 秋分の日
+    add(10, nthWeekday(year, 10, 1, 2)); // スポーツの日
+    add(11, 3);  // 文化の日
+    add(11, 23); // 勤労感謝の日
+    // 振替休日: 祝日が日曜なら翌月曜
+    const toCheck = [...h];
+    for (const key of toCheck) {
+        const [m, d] = key.split('/').map(Number);
+        const dt = new Date(year, m - 1, d);
+        if (dt.getDay() === 0) {
+            let nd = new Date(dt); nd.setDate(nd.getDate() + 1);
+            while (h.has((nd.getMonth() + 1) + '/' + nd.getDate())) nd.setDate(nd.getDate() + 1);
+            h.add((nd.getMonth() + 1) + '/' + nd.getDate());
+        }
+    }
+    return h;
+}
+let holidayCache = {};
+function isHoliday(date) {
+    const y = date.getFullYear();
+    if (!holidayCache[y]) holidayCache[y] = getJapaneseHolidays(y);
+    return holidayCache[y].has((date.getMonth() + 1) + '/' + date.getDate());
+}
+
 // ===== Calendar Logic =====
 function getShiftMonthRange(year, month) { let sy = year, sm = month - 1; if (sm < 1) { sm = 12; sy--; } return { start: new Date(sy, sm - 1, 21), end: new Date(year, month - 1, 20) }; }
 function getCurrentShiftMonth() { const t = new Date(), d = t.getDate(); if (d >= 21) { let m = t.getMonth() + 2, y = t.getFullYear(); if (m > 12) { m = 1; y++; } return { year: y, month: m }; } return { year: t.getFullYear(), month: t.getMonth() + 1 }; }
@@ -114,6 +157,7 @@ function renderCalendar(grid, el, onClick) {
         if (c.isToday) d.classList.add('today');
         if (c.dow === 0) d.classList.add('sun');
         if (c.dow === 6) d.classList.add('sat');
+        if (isHoliday(c.date)) d.classList.add('holiday');
         const n = document.createElement('div'); n.className = 'day-number'; n.textContent = c.day; d.appendChild(n);
         if (c.events.length > 0) {
             const ev = document.createElement('div'); ev.className = 'day-events'; const ms = 3, ts = c.events.slice(0, ms);
@@ -322,7 +366,7 @@ if ('serviceWorker' in navigator) {
             });
         });
         // 起動時に更新チェック
-        reg.update().catch(() => {});
+        reg.update().catch(() => { });
     }).catch(() => { });
     // コントローラー切替時もリロード促進
     navigator.serviceWorker.addEventListener('controllerchange', () => {

@@ -264,6 +264,10 @@ body {
     color: var(--sun-color);
 }
 
+.day-cell.holiday .day-number {
+    color: var(--sun-color);
+}
+
 .day-cell.sat .day-number {
     color: var(--sat-color);
 }
