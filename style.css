@@ -260,11 +260,6 @@ body {
     justify-content: center;
 }
 
-.day-cell {
-    display: flex;
-    flex-direction: column;
-}
-
 .day-weather {
     display: flex;
     align-items: center;
