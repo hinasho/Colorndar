@@ -225,7 +225,7 @@ body {
 .day-cell {
     min-height: 90px;
     background: transparent;
-    padding: 2px 2px 1px;
+    padding: 2px 2px 16px;
     display: flex;
     flex-direction: column;
     cursor: pointer;
@@ -261,10 +261,14 @@ body {
 }
 
 .day-events {
-    flex: 1;
+    overflow: hidden;
 }
 
 .day-weather {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
     display: flex;
     align-items: center;
     gap: 1px;
@@ -272,6 +276,7 @@ body {
     line-height: 1;
     justify-content: center;
     padding: 1px 0;
+    background: var(--card-bg);
     border-top: 1px solid var(--border);
 }
 
