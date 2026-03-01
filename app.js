@@ -72,51 +72,115 @@ function addLocalEvent(ev) { ev.id = 'local_' + Date.now(); ev.isLocal = true; l
 function updateLocalEvent(id, u) { const i = localEvents.findIndex(e => e.id === id); if (i !== -1) { localEvents[i] = { ...localEvents[i], ...u }; saveLocalEvents(); } }
 function deleteLocalEvent(id) { localEvents = localEvents.filter(e => e.id !== id); saveLocalEvents(); }
 
-// ===== Weather (Open-Meteo API) =====
-const WEATHER_CITIES = {
-    hachinohe: { name: '八戸', lat: 40.51, lon: 141.49 },
-    aomori: { name: '青森', lat: 40.82, lon: 140.74 },
-    sendai: { name: '仙台', lat: 38.27, lon: 140.87 },
-    tokyo: { name: '東京', lat: 35.68, lon: 139.69 },
-    osaka: { name: '大阪', lat: 34.69, lon: 135.50 },
-    nagoya: { name: '名古屋', lat: 35.18, lon: 136.91 },
-    sapporo: { name: '札幌', lat: 43.06, lon: 141.35 },
-    fukuoka: { name: '福岡', lat: 33.59, lon: 130.40 },
-    hiroshima: { name: '広島', lat: 34.40, lon: 132.46 },
-    niigata: { name: '新潟', lat: 37.90, lon: 139.02 },
-    naha: { name: '那覇', lat: 26.21, lon: 127.68 }
+// ===== Weather (気象庁 API via GAS proxy) =====
+const JMA_CITIES = {
+    hachinohe: { name: '八戸', pref: '020000', area: '020030', temp: '31602' },
+    aomori: { name: '青森', pref: '020000', area: '020010', temp: '31312' },
+    sapporo: { name: '札幌', pref: '016000', area: '016010', temp: '14163' },
+    sendai: { name: '仙台', pref: '040000', area: '040010', temp: '34392' },
+    niigata: { name: '新潟', pref: '150000', area: '150010', temp: '54232' },
+    tokyo: { name: '東京', pref: '130000', area: '130010', temp: '44132' },
+    nagoya: { name: '名古屋', pref: '230000', area: '230010', temp: '51106' },
+    osaka: { name: '大阪', pref: '270000', area: '270000', temp: '62078' },
+    hiroshima: { name: '広島', pref: '340000', area: '340010', temp: '67437' },
+    fukuoka: { name: '福岡', pref: '400000', area: '400010', temp: '82182' },
+    naha: { name: '那覇', pref: '471000', area: '471010', temp: '91197' }
 };
 let weatherData = {};
 let weatherCity = 'hachinohe';
 
-function wmoToEmoji(code) {
-    if (code <= 1) return '☀️';
-    if (code <= 3) return '⛅';
-    if (code <= 48) return '☁️';
-    if (code <= 57) return '🌧️';
-    if (code <= 67) return '🌧️';
-    if (code <= 77) return '❄️';
-    if (code <= 82) return '🌧️';
-    if (code <= 86) return '❄️';
+function jmaCodeToEmoji(code) {
+    const c = String(code);
+    const first = c.charAt(0);
+    if (first === '1') {
+        if (c.includes('02') || c.includes('06') || c.includes('14')) return '🌦️';
+        if (c.includes('01') || c.includes('10') || c.includes('11')) return '🌤️';
+        return '☀️';
+    }
+    if (first === '2') {
+        if (c.includes('02') || c.includes('06') || c.includes('09') || c.includes('14')) return '🌧️';
+        if (c.includes('04') || c.includes('13') || c.includes('20') || c.includes('60')) return '🌨️';
+        if (c.includes('01') || c.includes('11')) return '⛅';
+        return '☁️';
+    }
+    if (first === '3') {
+        if (c.includes('40') || c.includes('15') || c.includes('50')) return '🌨️';
+        return '🌧️';
+    }
+    if (first === '4') return '❄️';
     return '⛈️';
 }
 
+function parseDateStr(s) { return s.substring(0, 10); }
+
 async function fetchWeather() {
-    const city = WEATHER_CITIES[weatherCity];
+    const city = JMA_CITIES[weatherCity];
     if (!city) return;
     try {
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lon}&daily=weathercode,temperature_2m_max,temperature_2m_min&timezone=Asia%2FTokyo&forecast_days=8`;
-        const res = await fetch(url);
+        const params = new URLSearchParams({ action: 'fetchWeather', areaCode: city.pref });
+        const res = await fetch(GAS_URL + '?' + params.toString());
         const json = await res.json();
-        if (json.daily) {
-            weatherData = {};
-            json.daily.time.forEach((date, i) => {
-                weatherData[date] = {
-                    icon: wmoToEmoji(json.daily.weathercode[i]),
-                    max: Math.round(json.daily.temperature_2m_max[i]),
-                    min: Math.round(json.daily.temperature_2m_min[i])
-                };
-            });
+        if (!json.success || !json.data) return;
+        const jma = JSON.parse(json.data);
+        weatherData = {};
+
+        // 短期予報 (jma[0]): 今日〜明後日の天気コード
+        if (jma[0] && jma[0].timeSeries) {
+            const ts0 = jma[0].timeSeries[0];
+            if (ts0) {
+                const areaData = ts0.areas.find(a => a.area.code === city.area);
+                if (areaData && areaData.weatherCodes) {
+                    ts0.timeDefines.forEach((td, i) => {
+                        const dateKey = parseDateStr(td);
+                        if (!weatherData[dateKey]) weatherData[dateKey] = {};
+                        weatherData[dateKey].icon = jmaCodeToEmoji(areaData.weatherCodes[i]);
+                    });
+                }
+            }
+            // 短期の気温 (timeSeries[2])
+            const ts2 = jma[0].timeSeries[2];
+            if (ts2) {
+                const tempData = ts2.areas.find(a => a.area.code === city.temp);
+                if (tempData && tempData.temps) {
+                    const dates = ts2.timeDefines;
+                    if (dates.length >= 2) {
+                        const dateKey = parseDateStr(dates[0]);
+                        if (!weatherData[dateKey]) weatherData[dateKey] = {};
+                        weatherData[dateKey].min = parseInt(tempData.temps[0]);
+                        const dateKey2 = parseDateStr(dates[1]);
+                        if (!weatherData[dateKey2]) weatherData[dateKey2] = {};
+                        weatherData[dateKey2].max = parseInt(tempData.temps[1]);
+                        weatherData[dateKey].max = weatherData[dateKey].max || parseInt(tempData.temps[1]);
+                    }
+                }
+            }
+        }
+
+        // 週間予報 (jma[1]): 明日〜7日先の天気コード + 気温
+        if (jma[1] && jma[1].timeSeries) {
+            const wts0 = jma[1].timeSeries[0];
+            if (wts0) {
+                const wArea = wts0.areas.find(a => a.area.code === city.area) || wts0.areas[0];
+                if (wArea && wArea.weatherCodes) {
+                    wts0.timeDefines.forEach((td, i) => {
+                        const dateKey = parseDateStr(td);
+                        if (!weatherData[dateKey]) weatherData[dateKey] = {};
+                        weatherData[dateKey].icon = jmaCodeToEmoji(wArea.weatherCodes[i]);
+                    });
+                }
+            }
+            const wts1 = jma[1].timeSeries[1];
+            if (wts1) {
+                const wTemp = wts1.areas.find(a => a.area.code === city.temp);
+                if (wTemp) {
+                    wts1.timeDefines.forEach((td, i) => {
+                        const dateKey = parseDateStr(td);
+                        if (!weatherData[dateKey]) weatherData[dateKey] = {};
+                        if (wTemp.tempsMin && wTemp.tempsMin[i] !== '') weatherData[dateKey].min = parseInt(wTemp.tempsMin[i]);
+                        if (wTemp.tempsMax && wTemp.tempsMax[i] !== '') weatherData[dateKey].max = parseInt(wTemp.tempsMax[i]);
+                    });
+                }
+            }
         }
     } catch { }
 }
@@ -505,7 +569,7 @@ function setupEventListeners() {
     if (weatherCitySelect) {
         weatherCitySelect.addEventListener('change', e => {
             weatherCity = e.target.value; localSet(WEATHER_CITY_KEY, weatherCity);
-            fetchWeather().then(() => { renderMonth(); showToast(WEATHER_CITIES[weatherCity].name + 'の天気予報に切り替えました'); });
+            fetchWeather().then(() => { renderMonth(); showToast(JMA_CITIES[weatherCity].name + 'の天気予報に切り替えました'); });
         });
     }
     // Detail modal: edit/delete local events
