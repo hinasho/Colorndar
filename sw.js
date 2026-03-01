@@ -1,5 +1,5 @@
 // Colorndar Service Worker
-const CACHE_NAME = 'colorndar-v3';
+const CACHE_NAME = 'colorndar-v4';
 const STATIC_ASSETS = [
     './',
     './index.html',
@@ -10,7 +10,7 @@ const STATIC_ASSETS = [
     './icons/icon-512.png'
 ];
 
-// Install: 静的アセットをキャッシュ
+// Install: 最新アセットをキャッシュ + 即座にアクティブ化
 self.addEventListener('install', event => {
     event.waitUntil(
         caches.open(CACHE_NAME)
@@ -19,7 +19,7 @@ self.addEventListener('install', event => {
     );
 });
 
-// Activate: 古いキャッシュを削除
+// Activate: 古いキャッシュを全削除 + 即座にコントロール取得
 self.addEventListener('activate', event => {
     event.waitUntil(
         caches.keys().then(keys =>
@@ -28,35 +28,21 @@ self.addEventListener('activate', event => {
     );
 });
 
-// Fetch: Cache-First(静的) / Network-First(API)
+// Fetch: Network-First（常に最新を取得、失敗時のみキャッシュ）
 self.addEventListener('fetch', event => {
-    const url = new URL(event.request.url);
-
-    // GAS API: Network-First
-    if (url.hostname.includes('script.google.com')) {
-        event.respondWith(
-            fetch(event.request)
-                .then(response => {
-                    const clone = response.clone();
-                    caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
-                    return response;
-                })
-                .catch(() => caches.match(event.request))
-        );
-        return;
-    }
-
-    // 静的アセット: Cache-First
     event.respondWith(
-        caches.match(event.request).then(cached => {
-            if (cached) return cached;
-            return fetch(event.request).then(response => {
+        fetch(event.request)
+            .then(response => {
+                // 成功したらキャッシュを更新
                 if (response.status === 200) {
                     const clone = response.clone();
                     caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
                 }
                 return response;
-            });
-        })
+            })
+            .catch(() => {
+                // オフライン時はキャッシュから返す
+                return caches.match(event.request);
+            })
     );
 });
