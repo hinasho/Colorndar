@@ -413,6 +413,7 @@ function setupEventListeners() {
     prevBtn.addEventListener('click', () => { currentMonth.month--; if (currentMonth.month < 1) { currentMonth.month = 12; currentMonth.year--; } renderMonth(); });
     nextBtn.addEventListener('click', () => { currentMonth.month++; if (currentMonth.month > 12) { currentMonth.month = 1; currentMonth.year++; } renderMonth(); });
     refreshBtn.addEventListener('click', async () => { refreshBtn.classList.add('loading'); await refreshData(); refreshBtn.classList.remove('loading'); });
+    document.querySelector('.app-title').addEventListener('click', () => { currentMonth = getCurrentShiftMonth(); renderMonth(); });
     settingsToggle.addEventListener('click', () => settingsPanel.classList.remove('hidden'));
     settingsClose.addEventListener('click', () => settingsPanel.classList.add('hidden'));
     loadUrlBtn.addEventListener('click', loadFromUrl);

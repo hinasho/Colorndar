@@ -1,5 +1,5 @@
 // Colorndar Service Worker
-const CACHE_NAME = 'colorndar-v5';
+const CACHE_NAME = 'colorndar-v6';
 const STATIC_ASSETS = [
     './',
     './index.html',
