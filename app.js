@@ -318,14 +318,14 @@ function renderCalendar(grid, el, onClick) {
         const dateKey = c.date.getFullYear() + '-' + String(c.date.getMonth() + 1).padStart(2, '0') + '-' + String(c.date.getDate()).padStart(2, '0');
         const wd = weatherData[dateKey];
         const hasWeather = !!wd;
+        const ev = document.createElement('div'); ev.className = 'day-events';
         if (c.events.length > 0) {
-            const ev = document.createElement('div'); ev.className = 'day-events';
             const ms = hasWeather ? 2 : 3;
             const ts = c.events.slice(0, ms);
             for (const e of ts) { const el2 = document.createElement('div'); el2.className = 'event-label'; el2.style.backgroundColor = e.displayColor + '25'; el2.style.color = e.displayColor; el2.style.borderLeft = '2px solid ' + e.displayColor; el2.textContent = e.summary; ev.appendChild(el2); }
             if (c.events.length > ms) { const m = document.createElement('div'); m.className = 'events-more'; m.textContent = '+' + String(c.events.length - ms); ev.appendChild(m); }
-            d.appendChild(ev);
         }
+        d.appendChild(ev);
         if (hasWeather) {
             const we = document.createElement('div'); we.className = 'day-weather';
             const maxT = wd.max !== undefined ? wd.max : '';
