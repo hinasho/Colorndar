@@ -67,8 +67,18 @@
                 <div class="modal-header">
                     <h2 id="modal-date-title"></h2>
                     <div class="modal-header-actions">
-                        <button id="modal-add-event" class="icon-btn" aria-label="予定追加"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
-                        <button id="modal-close" class="icon-btn" aria-label="閉じる"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+                        <button id="modal-add-event" class="icon-btn" aria-label="予定追加"><svg width="20" height="20"
+                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                                stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="12" y1="5" x2="12" y2="19" />
+                                <line x1="5" y1="12" x2="19" y2="12" />
+                            </svg></button>
+                        <button id="modal-close" class="icon-btn" aria-label="閉じる"><svg width="20" height="20"
+                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                                stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="18" y1="6" x2="6" y2="18" />
+                                <line x1="6" y1="6" x2="18" y2="18" />
+                            </svg></button>
                     </div>
                 </div>
                 <div id="modal-events-list" class="modal-events-list"></div>
@@ -76,13 +86,26 @@
         </div>
         <div id="event-edit-modal" class="modal-overlay hidden">
             <div class="modal-content rule-edit-content">
-                <div class="modal-header"><h2 id="event-edit-title">予定追加</h2><button id="event-edit-close" class="icon-btn" aria-label="閉じる"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+                <div class="modal-header">
+                    <h2 id="event-edit-title">予定追加</h2><button id="event-edit-close" class="icon-btn"
+                        aria-label="閉じる"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg></button>
+                </div>
                 <div class="rule-edit-body">
-                    <div class="input-group"><label for="event-title">タイトル</label><input type="text" id="event-title" placeholder="例: 歯医者"/></div>
+                    <div class="input-group"><label for="event-title">タイトル</label><input type="text" id="event-title"
+                            placeholder="例: 歯医者" /></div>
                     <div class="input-group"><label><input type="checkbox" id="event-allday" checked> 終日</label></div>
-                    <div id="event-time-group" class="input-group hidden"><label for="event-start-time">開始時間</label><input type="time" id="event-start-time" value="09:00"/><label for="event-end-time" style="margin-top:6px">終了時間</label><input type="time" id="event-end-time" value="10:00"/></div>
-                    <div class="input-group"><label for="event-color">色</label><input type="color" id="event-color" value="#6366f1"/></div>
-                    <div class="input-group"><label for="event-memo">メモ</label><input type="text" id="event-memo" placeholder="任意"/></div>
+                    <div id="event-time-group" class="input-group hidden"><label
+                            for="event-start-time">開始時間</label><input type="time" id="event-start-time"
+                            value="09:00" /><label for="event-end-time" style="margin-top:6px">終了時間</label><input
+                            type="time" id="event-end-time" value="10:00" /></div>
+                    <div class="input-group"><label for="event-color">色</label><input type="color" id="event-color"
+                            value="#6366f1" /></div>
+                    <div class="input-group"><label for="event-memo">メモ</label><input type="text" id="event-memo"
+                            placeholder="任意" /></div>
                     <div class="rule-edit-actions">
                         <button id="event-save-btn" class="action-btn primary">保存</button>
                         <button id="event-delete-btn" class="action-btn danger hidden">削除</button>
@@ -123,6 +146,22 @@
                             <option value="30" selected>30分</option>
                             <option value="60">60分</option>
                             <option value="0">自動更新しない</option>
+                        </select></div>
+                </section>
+                <section class="settings-section">
+                    <h3>🌤 天気予報</h3>
+                    <div class="input-group"><label for="weather-city">表示地域</label><select id="weather-city">
+                            <option value="hachinohe" selected>八戸</option>
+                            <option value="aomori">青森</option>
+                            <option value="sapporo">札幌</option>
+                            <option value="sendai">仙台</option>
+                            <option value="niigata">新潟</option>
+                            <option value="tokyo">東京</option>
+                            <option value="nagoya">名古屋</option>
+                            <option value="osaka">大阪</option>
+                            <option value="hiroshima">広島</option>
+                            <option value="fukuoka">福岡</option>
+                            <option value="naha">那覇</option>
                         </select></div>
                 </section>
             </div>

@@ -9,6 +9,7 @@ const URL_KEY = 'colorndar_ical_url';
 const DATA_KEY = 'colorndar_ical_data';
 const INTERVAL_KEY = 'colorndar_update_interval';
 const LOCAL_EVENTS_KEY = 'colorndar_local_events';
+const WEATHER_CITY_KEY = 'colorndar_weather_city';
 
 function localGet(key) { try { return localStorage.getItem(key); } catch { return null; } }
 function localSet(key, val) { try { localStorage.setItem(key, val); } catch { } }
@@ -70,6 +71,55 @@ function saveLocalEvents() { const v = JSON.stringify(localEvents); apiSave(LOCA
 function addLocalEvent(ev) { ev.id = 'local_' + Date.now(); ev.isLocal = true; localEvents.push(ev); saveLocalEvents(); return ev; }
 function updateLocalEvent(id, u) { const i = localEvents.findIndex(e => e.id === id); if (i !== -1) { localEvents[i] = { ...localEvents[i], ...u }; saveLocalEvents(); } }
 function deleteLocalEvent(id) { localEvents = localEvents.filter(e => e.id !== id); saveLocalEvents(); }
+
+// ===== Weather (Open-Meteo API) =====
+const WEATHER_CITIES = {
+    hachinohe: { name: '八戸', lat: 40.51, lon: 141.49 },
+    aomori: { name: '青森', lat: 40.82, lon: 140.74 },
+    sendai: { name: '仙台', lat: 38.27, lon: 140.87 },
+    tokyo: { name: '東京', lat: 35.68, lon: 139.69 },
+    osaka: { name: '大阪', lat: 34.69, lon: 135.50 },
+    nagoya: { name: '名古屋', lat: 35.18, lon: 136.91 },
+    sapporo: { name: '札幌', lat: 43.06, lon: 141.35 },
+    fukuoka: { name: '福岡', lat: 33.59, lon: 130.40 },
+    hiroshima: { name: '広島', lat: 34.40, lon: 132.46 },
+    niigata: { name: '新潟', lat: 37.90, lon: 139.02 },
+    naha: { name: '那覇', lat: 26.21, lon: 127.68 }
+};
+let weatherData = {};
+let weatherCity = 'hachinohe';
+
+function wmoToEmoji(code) {
+    if (code <= 1) return '☀️';
+    if (code <= 3) return '⛅';
+    if (code <= 48) return '☁️';
+    if (code <= 57) return '🌧️';
+    if (code <= 67) return '🌧️';
+    if (code <= 77) return '❄️';
+    if (code <= 82) return '🌧️';
+    if (code <= 86) return '❄️';
+    return '⛈️';
+}
+
+async function fetchWeather() {
+    const city = WEATHER_CITIES[weatherCity];
+    if (!city) return;
+    try {
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lon}&daily=weathercode,temperature_2m_max,temperature_2m_min&timezone=Asia%2FTokyo&forecast_days=8`;
+        const res = await fetch(url);
+        const json = await res.json();
+        if (json.daily) {
+            weatherData = {};
+            json.daily.time.forEach((date, i) => {
+                weatherData[date] = {
+                    icon: wmoToEmoji(json.daily.weathercode[i]),
+                    max: Math.round(json.daily.temperature_2m_max[i]),
+                    min: Math.round(json.daily.temperature_2m_min[i])
+                };
+            });
+        }
+    } catch { }
+}
 
 // ===== iCal Parser =====
 function readIcalFile(file) { return new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = () => reject(new Error('ファイル読み込み失敗')); r.readAsText(file); }); }
@@ -181,7 +231,16 @@ function renderCalendar(grid, el, onClick) {
         if (c.dow === 0) d.classList.add('sun');
         if (c.dow === 6) d.classList.add('sat');
         if (isHoliday(c.date)) d.classList.add('holiday');
-        const n = document.createElement('div'); n.className = 'day-number'; n.textContent = c.day; d.appendChild(n);
+        const dayTop = document.createElement('div'); dayTop.className = 'day-top';
+        const n = document.createElement('div'); n.className = 'day-number'; n.textContent = c.day; dayTop.appendChild(n);
+        const dateKey = c.date.getFullYear() + '-' + String(c.date.getMonth() + 1).padStart(2, '0') + '-' + String(c.date.getDate()).padStart(2, '0');
+        const w = weatherData[dateKey];
+        if (w) {
+            const we = document.createElement('div'); we.className = 'day-weather';
+            we.innerHTML = '<span class="weather-icon">' + w.icon + '</span><span class="temp-max">' + w.max + '°</span><span class="temp-min">' + w.min + '°</span>';
+            dayTop.appendChild(we);
+        }
+        d.appendChild(dayTop);
         if (c.events.length > 0) {
             const ev = document.createElement('div'); ev.className = 'day-events'; const ms = 3, ts = c.events.slice(0, ms);
             for (const e of ts) { const el2 = document.createElement('div'); el2.className = 'event-label'; el2.style.backgroundColor = e.displayColor + '25'; el2.style.color = e.displayColor; el2.style.borderLeft = '2px solid ' + e.displayColor; el2.textContent = e.summary; ev.appendChild(el2); }
@@ -356,6 +415,9 @@ function showUpdateToast() {
 function initApp() {
     // Phase 1: 即座描画（localStorageキャッシュ優先）
     loadLocalEvents();
+    weatherCity = localGet(WEATHER_CITY_KEY) || 'hachinohe';
+    const weatherSelect = $('weather-city');
+    if (weatherSelect) weatherSelect.value = weatherCity;
     loadRulesFromData(localGet(RULES_KEY));
     savedIcalUrl = localGet(URL_KEY) || '';
     if (savedIcalUrl) icalUrlInput.value = savedIcalUrl;
@@ -397,7 +459,10 @@ function initApp() {
         }
         if (needRerender) renderMonth();
 
-        // Phase 3: URLから最新iCalデータを取得
+        // Phase 3: 天気予報を取得
+        fetchWeather().then(() => renderMonth());
+
+        // Phase 4: URLから最新iCalデータを取得
         if (savedIcalUrl) {
             apiFetchIcal(savedIcalUrl).then(t => {
                 events = parseIcal(t); savedIcalData = t;
@@ -435,6 +500,14 @@ function setupEventListeners() {
     eventEditModal.addEventListener('click', e => { if (e.target === eventEditModal) eventEditModal.classList.add('hidden'); });
     eventAlldayCheck.addEventListener('change', () => eventTimeGroup.classList.toggle('hidden', eventAlldayCheck.checked));
     eventDeleteBtn.addEventListener('click', () => { if (editingEventId) { deleteLocalEvent(editingEventId); showToast('予定を削除しました'); eventEditModal.classList.add('hidden'); eventDetailModal.classList.add('hidden'); renderMonth(); } });
+    // Weather city selector
+    const weatherCitySelect = $('weather-city');
+    if (weatherCitySelect) {
+        weatherCitySelect.addEventListener('change', e => {
+            weatherCity = e.target.value; localSet(WEATHER_CITY_KEY, weatherCity);
+            fetchWeather().then(() => { renderMonth(); showToast(WEATHER_CITIES[weatherCity].name + 'の天気予報に切り替えました'); });
+        });
+    }
     // Detail modal: edit/delete local events
     modalEventsList.addEventListener('click', e => {
         const editBtn = e.target.closest('.local-edit-btn');

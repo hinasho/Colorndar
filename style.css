@@ -260,6 +260,35 @@ body {
     justify-content: center;
 }
 
+.day-top {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.day-weather {
+    display: flex;
+    align-items: center;
+    gap: 1px;
+    font-size: .52rem;
+    line-height: 1;
+    margin-left: auto;
+}
+
+.weather-icon {
+    font-size: .55rem;
+}
+
+.temp-max {
+    color: #dc2626;
+    font-weight: 600;
+}
+
+.temp-min {
+    color: #2563eb;
+    font-weight: 600;
+}
+
 .day-cell.sun .day-number {
     color: var(--sun-color);
 }
