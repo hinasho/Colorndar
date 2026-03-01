@@ -8,6 +8,7 @@ const RULES_KEY = 'colorndar_color_rules';
 const URL_KEY = 'colorndar_ical_url';
 const DATA_KEY = 'colorndar_ical_data';
 const INTERVAL_KEY = 'colorndar_update_interval';
+const LOCAL_EVENTS_KEY = 'colorndar_local_events';
 
 function localGet(key) { try { return localStorage.getItem(key); } catch { return null; } }
 function localSet(key, val) { try { localStorage.setItem(key, val); } catch { } }
@@ -58,6 +59,17 @@ function getEventColor(summary) {
     for (const r of rules) for (const kw of r.keywords) { if (ls.includes(kw.toLowerCase())) return { color: r.color, label: r.label }; }
     return { color: '#6b7280', label: null };
 }
+
+// ===== Local Events =====
+let localEvents = [];
+function loadLocalEvents() {
+    const s = localGet(LOCAL_EVENTS_KEY);
+    if (s) { try { localEvents = JSON.parse(s); } catch { localEvents = []; } }
+}
+function saveLocalEvents() { const v = JSON.stringify(localEvents); apiSave(LOCAL_EVENTS_KEY, v); }
+function addLocalEvent(ev) { ev.id = 'local_' + Date.now(); ev.isLocal = true; localEvents.push(ev); saveLocalEvents(); return ev; }
+function updateLocalEvent(id, u) { const i = localEvents.findIndex(e => e.id === id); if (i !== -1) { localEvents[i] = { ...localEvents[i], ...u }; saveLocalEvents(); } }
+function deleteLocalEvent(id) { localEvents = localEvents.filter(e => e.id !== id); saveLocalEvents(); }
 
 // ===== iCal Parser =====
 function readIcalFile(file) { return new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = () => reject(new Error('ファイル読み込み失敗')); r.readAsText(file); }); }
@@ -149,6 +161,17 @@ function mapEventsToGrid(grid, events) {
     if (!events || !events.length) return;
     for (const ev of events) { if (!ev.start) continue; const es = new Date(ev.start); es.setHours(0, 0, 0, 0); const ee = ev.end ? new Date(ev.end) : new Date(es); ee.setHours(0, 0, 0, 0); if (ev.allDay && ev.end) ee.setDate(ee.getDate() - 1); for (const w of grid) for (const c of w) { const ct = c.date.getTime(); if (ct >= es.getTime() && ct <= ee.getTime()) { const ci = getEventColor(ev.summary); c.events.push({ ...ev, displayColor: ci.color, ruleLabel: ci.label }); } } }
 }
+function mapLocalEventsToGrid(grid) {
+    for (const ev of localEvents) {
+        if (!ev.date) continue;
+        const ed = new Date(ev.date); ed.setHours(0, 0, 0, 0);
+        for (const w of grid) for (const c of w) {
+            if (c.date.getTime() === ed.getTime()) {
+                c.events.push({ uid: ev.id, summary: ev.title, description: ev.memo || '', start: ev.allDay ? ed : new Date(ev.date + 'T' + (ev.startTime || '00:00')), end: ev.allDay ? ed : new Date(ev.date + 'T' + (ev.endTime || '23:59')), allDay: ev.allDay, displayColor: ev.color || '#6366f1', isLocal: true, localId: ev.id });
+            }
+        }
+    }
+}
 function renderCalendar(grid, el, onClick) {
     el.innerHTML = '';
     for (const w of grid) for (const c of w) {
@@ -189,11 +212,14 @@ function renderMonth() {
     monthRangeEl.textContent = (start.getMonth() + 1) + '/' + start.getDate() + ' 〜 ' + (end.getMonth() + 1) + '/' + end.getDate();
     const g = generateCalendarGrid(currentMonth.year, currentMonth.month);
     mapEventsToGrid(g, events);
+    mapLocalEventsToGrid(g);
     renderCalendar(g, calendarGridEl, onDayClick);
 }
 
+let currentDetailDate = null;
 function onDayClick(cell) {
     const d = cell.date;
+    currentDetailDate = d;
     modalDateTitle.textContent = (d.getMonth() + 1) + '月' + d.getDate() + '日（' + '日月火水木金土'[d.getDay()] + '）';
     modalEventsList.innerHTML = '';
     if (!cell.events.length) {
@@ -203,11 +229,58 @@ function onDayClick(cell) {
             const i = document.createElement('div'); i.className = 'modal-event-item'; i.style.borderLeftColor = ev.displayColor;
             let t = '終日';
             if (!ev.allDay && ev.start) { const s = new Date(ev.start); t = String(s.getHours()).padStart(2, '0') + ':' + String(s.getMinutes()).padStart(2, '0'); if (ev.end) { const e2 = new Date(ev.end); t += ' - ' + String(e2.getHours()).padStart(2, '0') + ':' + String(e2.getMinutes()).padStart(2, '0'); } }
-            i.innerHTML = '<span class="modal-event-time">' + t + '</span><div><div class="modal-event-title" style="color:' + ev.displayColor + '">' + ev.summary + '</div>' + (ev.location ? '<div style="font-size:0.72rem;color:var(--text-muted);margin-top:2px">📍 ' + ev.location + '</div>' : '') + (ev.description ? '<div style="font-size:0.72rem;color:var(--text-secondary);margin-top:4px">' + ev.description + '</div>' : '') + '</div>';
+            let actions = '';
+            if (ev.isLocal) { actions = '<div class="local-event-actions"><button class="local-edit-btn" data-id="' + ev.localId + '">✏️</button><button class="local-delete-btn" data-id="' + ev.localId + '">🗑️</button></div>'; }
+            i.innerHTML = '<span class="modal-event-time">' + t + '</span><div style="flex:1"><div class="modal-event-title" style="color:' + ev.displayColor + '">' + ev.summary + '</div>' + (ev.description ? '<div style="font-size:0.72rem;color:var(--text-secondary);margin-top:4px">' + ev.description + '</div>' : '') + '</div>' + actions;
             modalEventsList.appendChild(i);
         }
     }
     eventDetailModal.classList.remove('hidden');
+}
+
+// ===== Event Add/Edit Modal =====
+const eventEditModal = $('event-edit-modal'), eventEditTitle = $('event-edit-title'), eventTitleInput = $('event-title'), eventAlldayCheck = $('event-allday'), eventTimeGroup = $('event-time-group'), eventStartTime = $('event-start-time'), eventEndTime = $('event-end-time'), eventColorInput = $('event-color'), eventMemoInput = $('event-memo'), eventSaveBtn = $('event-save-btn'), eventDeleteBtn = $('event-delete-btn'), eventCancelBtn = $('event-cancel-btn'), eventEditClose = $('event-edit-close'), modalAddEventBtn = $('modal-add-event');
+let editingEventId = null, editingEventDate = null;
+
+function openEventEditor(date, existingId) {
+    editingEventDate = typeof date === 'string' ? date : date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+    if (existingId) {
+        const ev = localEvents.find(e => e.id === existingId);
+        if (!ev) return;
+        editingEventId = existingId;
+        eventEditTitle.textContent = '予定編集';
+        eventTitleInput.value = ev.title;
+        eventAlldayCheck.checked = ev.allDay;
+        eventTimeGroup.classList.toggle('hidden', ev.allDay);
+        eventStartTime.value = ev.startTime || '09:00';
+        eventEndTime.value = ev.endTime || '10:00';
+        eventColorInput.value = ev.color || '#6366f1';
+        eventMemoInput.value = ev.memo || '';
+        eventDeleteBtn.classList.remove('hidden');
+    } else {
+        editingEventId = null;
+        eventEditTitle.textContent = '予定追加';
+        eventTitleInput.value = '';
+        eventAlldayCheck.checked = true;
+        eventTimeGroup.classList.add('hidden');
+        eventStartTime.value = '09:00';
+        eventEndTime.value = '10:00';
+        eventColorInput.value = '#6366f1';
+        eventMemoInput.value = '';
+        eventDeleteBtn.classList.add('hidden');
+    }
+    eventEditModal.classList.remove('hidden');
+}
+
+function saveEventFromEditor() {
+    const title = eventTitleInput.value.trim();
+    if (!title) { showToast('タイトルを入力してください'); return; }
+    const data = { title, date: editingEventDate, allDay: eventAlldayCheck.checked, startTime: eventStartTime.value, endTime: eventEndTime.value, color: eventColorInput.value, memo: eventMemoInput.value.trim() };
+    if (editingEventId) { updateLocalEvent(editingEventId, data); showToast('予定を更新しました'); }
+    else { addLocalEvent(data); showToast('予定を追加しました'); }
+    eventEditModal.classList.add('hidden');
+    eventDetailModal.classList.add('hidden');
+    renderMonth();
 }
 
 async function loadFromUrl() {
@@ -282,6 +355,7 @@ function showUpdateToast() {
 // ===== Init: Instant render + background data load =====
 function initApp() {
     // Phase 1: 即座描画（localStorageキャッシュ優先）
+    loadLocalEvents();
     loadRulesFromData(localGet(RULES_KEY));
     savedIcalUrl = localGet(URL_KEY) || '';
     if (savedIcalUrl) icalUrlInput.value = savedIcalUrl;
@@ -316,6 +390,11 @@ function initApp() {
             lastUpdateTime = new Date(); lastUpdateEl.textContent = formatLastUpdate(lastUpdateTime);
             needRerender = true;
         }
+        if (allData[LOCAL_EVENTS_KEY] && allData[LOCAL_EVENTS_KEY] !== localGet(LOCAL_EVENTS_KEY)) {
+            localSet(LOCAL_EVENTS_KEY, allData[LOCAL_EVENTS_KEY]);
+            loadLocalEvents();
+            needRerender = true;
+        }
         if (needRerender) renderMonth();
 
         // Phase 3: URLから最新iCalデータを取得
@@ -347,6 +426,21 @@ function setupEventListeners() {
     ruleCancelBtn.addEventListener('click', () => ruleEditModal.classList.add('hidden'));
     ruleEditCloseBtn.addEventListener('click', () => ruleEditModal.classList.add('hidden'));
     ruleEditModal.addEventListener('click', e => { if (e.target === ruleEditModal) ruleEditModal.classList.add('hidden'); });
+    // Local event modal
+    modalAddEventBtn.addEventListener('click', () => { if (currentDetailDate) openEventEditor(currentDetailDate, null); });
+    eventSaveBtn.addEventListener('click', saveEventFromEditor);
+    eventCancelBtn.addEventListener('click', () => eventEditModal.classList.add('hidden'));
+    eventEditClose.addEventListener('click', () => eventEditModal.classList.add('hidden'));
+    eventEditModal.addEventListener('click', e => { if (e.target === eventEditModal) eventEditModal.classList.add('hidden'); });
+    eventAlldayCheck.addEventListener('change', () => eventTimeGroup.classList.toggle('hidden', eventAlldayCheck.checked));
+    eventDeleteBtn.addEventListener('click', () => { if (editingEventId) { deleteLocalEvent(editingEventId); showToast('予定を削除しました'); eventEditModal.classList.add('hidden'); eventDetailModal.classList.add('hidden'); renderMonth(); } });
+    // Detail modal: edit/delete local events
+    modalEventsList.addEventListener('click', e => {
+        const editBtn = e.target.closest('.local-edit-btn');
+        const deleteBtn = e.target.closest('.local-delete-btn');
+        if (editBtn) { eventDetailModal.classList.add('hidden'); openEventEditor(currentDetailDate, editBtn.dataset.id); }
+        if (deleteBtn) { deleteLocalEvent(deleteBtn.dataset.id); showToast('予定を削除しました'); eventDetailModal.classList.add('hidden'); renderMonth(); }
+    });
     let touchStartX = 0;
     calendarGridEl.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
     calendarGridEl.addEventListener('touchend', e => { const d = touchStartX - e.changedTouches[0].screenX; if (Math.abs(d) > 60) { if (d > 0) { currentMonth.month++; if (currentMonth.month > 12) { currentMonth.month = 1; currentMonth.year++; } } else { currentMonth.month--; if (currentMonth.month < 1) { currentMonth.month = 12; currentMonth.year--; } } renderMonth(); } }, { passive: true });

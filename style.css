@@ -386,6 +386,45 @@ body {
     font-size: .82rem;
 }
 
+.modal-header-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.local-event-actions {
+    display: flex;
+    gap: 2px;
+    flex-shrink: 0;
+    align-self: center;
+}
+
+.local-event-actions button {
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: none;
+    cursor: pointer;
+    border-radius: 50%;
+    font-size: .75rem;
+}
+
+.local-event-actions button:active {
+    background: var(--bg-hover);
+}
+
+.action-btn.danger {
+    background: #fee2e2;
+    color: #dc2626;
+    border-color: #fca5a5;
+}
+
+.hidden {
+    display: none !important;
+}
+
 @keyframes fadeIn {
     from {
         opacity: 0;
