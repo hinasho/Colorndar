@@ -260,15 +260,19 @@ body {
     justify-content: center;
 }
 
+.day-events {
+    flex: 1;
+}
+
 .day-weather {
     display: flex;
     align-items: center;
     gap: 1px;
     font-size: .52rem;
     line-height: 1;
-    margin-top: auto;
     justify-content: center;
-    padding-top: 1px;
+    padding: 1px 0;
+    border-top: 1px solid var(--border);
 }
 
 .weather-icon {
