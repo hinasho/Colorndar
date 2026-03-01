@@ -314,21 +314,24 @@ function renderCalendar(grid, el, onClick) {
         if (c.dow === 0) d.classList.add('sun');
         if (c.dow === 6) d.classList.add('sat');
         if (isHoliday(c.date)) d.classList.add('holiday');
-        const dayTop = document.createElement('div'); dayTop.className = 'day-top';
-        const n = document.createElement('div'); n.className = 'day-number'; n.textContent = c.day; dayTop.appendChild(n);
+        const n = document.createElement('div'); n.className = 'day-number'; n.textContent = c.day; d.appendChild(n);
         const dateKey = c.date.getFullYear() + '-' + String(c.date.getMonth() + 1).padStart(2, '0') + '-' + String(c.date.getDate()).padStart(2, '0');
-        const w = weatherData[dateKey];
-        if (w) {
-            const we = document.createElement('div'); we.className = 'day-weather';
-            we.innerHTML = '<span class="weather-icon">' + w.icon + '</span><span class="temp-max">' + w.max + '°</span><span class="temp-min">' + w.min + '°</span>';
-            dayTop.appendChild(we);
-        }
-        d.appendChild(dayTop);
+        const wd = weatherData[dateKey];
+        const hasWeather = !!wd;
         if (c.events.length > 0) {
-            const ev = document.createElement('div'); ev.className = 'day-events'; const ms = 3, ts = c.events.slice(0, ms);
+            const ev = document.createElement('div'); ev.className = 'day-events';
+            const ms = hasWeather ? 2 : 3;
+            const ts = c.events.slice(0, ms);
             for (const e of ts) { const el2 = document.createElement('div'); el2.className = 'event-label'; el2.style.backgroundColor = e.displayColor + '25'; el2.style.color = e.displayColor; el2.style.borderLeft = '2px solid ' + e.displayColor; el2.textContent = e.summary; ev.appendChild(el2); }
             if (c.events.length > ms) { const m = document.createElement('div'); m.className = 'events-more'; m.textContent = '+' + String(c.events.length - ms); ev.appendChild(m); }
             d.appendChild(ev);
+        }
+        if (hasWeather) {
+            const we = document.createElement('div'); we.className = 'day-weather';
+            const maxT = wd.max !== undefined ? wd.max : '';
+            const minT = wd.min !== undefined ? wd.min : '';
+            we.innerHTML = '<span class="weather-icon">' + wd.icon + '</span>' + (maxT !== '' ? '<span class="temp-max">' + maxT + '°</span>' : '') + (minT !== '' ? '<span class="temp-min">' + minT + '°</span>' : '');
+            d.appendChild(we);
         }
         if (c.isInRange) d.addEventListener('click', () => onClick(c));
         el.appendChild(d);
