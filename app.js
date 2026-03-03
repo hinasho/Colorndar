@@ -253,8 +253,10 @@ function expandRecurringEvents(events) {
         try {
             const duration = (ev.end && ev.start) ? ev.end.getTime() - ev.start.getTime() : 0;
             const rruleStr = ev._dtstart_raw + '\nRRULE:' + ev._rrule;
-            const rule = rrulestr(rruleStr);
-            const occurrences = rule.between(rangeStart, rangeEnd, true);
+            const rule = (typeof rrulestr !== 'undefined' ? rrulestr : (window.rrule ? window.rrule.rrulestr : null));
+            if (!rule) { result.push(ev); continue; }
+            const parsed = rule(rruleStr);
+            const occurrences = parsed.between(rangeStart, rangeEnd, true);
             const exSet = new Set(ev._exdates || []);
             for (const occ of occurrences) {
                 const occStart = new Date(occ);
@@ -271,7 +273,8 @@ function expandRecurringEvents(events) {
                     allDay: ev.allDay
                 });
             }
-        } catch {
+        } catch (err) {
+            console.warn('RRULE展開失敗:', ev.summary, err);
             result.push(ev);
         }
         delete ev._rrule; delete ev._dtstart_raw; delete ev._exdates;
