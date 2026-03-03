@@ -210,23 +210,75 @@ function parseIcal(text) {
     const events = [], lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\n[ \t]/g, '').split('\n').map(l => l.trim()).filter(l => l.length > 0);
     let inEv = false, cur = {};
     for (const line of lines) {
-        if (line === 'BEGIN:VEVENT') { inEv = true; cur = {}; }
-        else if (line === 'END:VEVENT') { inEv = false; if (cur.summary) events.push(normalizeEvent(cur)); }
+        if (line === 'BEGIN:VEVENT') { inEv = true; cur = { exdates: [] }; }
+        else if (line === 'END:VEVENT') {
+            inEv = false;
+            if (cur.summary) {
+                const ev = normalizeEvent(cur);
+                if (cur.rrule) {
+                    ev._rrule = cur.rrule;
+                    ev._dtstart_raw = cur.dtstart_raw;
+                    ev._exdates = cur.exdates;
+                }
+                events.push(ev);
+            }
+        }
         else if (inEv) {
             const ci = line.indexOf(':'); if (ci === -1) continue;
-            let key = line.substring(0, ci); const val = line.substring(ci + 1);
-            const si = key.indexOf(';'); if (si !== -1) key = key.substring(0, si);
-            key = key.toUpperCase();
+            const keyPart = line.substring(0, ci); const val = line.substring(ci + 1);
+            const si = keyPart.indexOf(';');
+            const key = (si !== -1 ? keyPart.substring(0, si) : keyPart).toUpperCase();
             if (key === 'SUMMARY') cur.summary = val;
-            else if (key === 'DTSTART') cur.dtstart = val;
+            else if (key === 'DTSTART') { cur.dtstart = val; cur.dtstart_raw = line; }
             else if (key === 'DTEND') cur.dtend = val;
             else if (key === 'DESCRIPTION') cur.description = val;
             else if (key === 'LOCATION') cur.location = val;
             else if (key === 'UID') cur.uid = val;
+            else if (key === 'RRULE') cur.rrule = val;
+            else if (key === 'EXDATE') {
+                val.split(',').forEach(d => { const p = parseIcalDate(d.trim()); if (p) cur.exdates.push(p.date.getTime()); });
+            }
         }
     }
-    return events;
+    return expandRecurringEvents(events);
 }
+
+function expandRecurringEvents(events) {
+    const result = [];
+    const now = new Date();
+    const rangeStart = new Date(now.getFullYear() - 1, 0, 1);
+    const rangeEnd = new Date(now.getFullYear() + 1, 11, 31);
+    for (const ev of events) {
+        if (!ev._rrule) { result.push(ev); continue; }
+        try {
+            const duration = (ev.end && ev.start) ? ev.end.getTime() - ev.start.getTime() : 0;
+            const rruleStr = ev._dtstart_raw + '\nRRULE:' + ev._rrule;
+            const rule = rrulestr(rruleStr);
+            const occurrences = rule.between(rangeStart, rangeEnd, true);
+            const exSet = new Set(ev._exdates || []);
+            for (const occ of occurrences) {
+                const occStart = new Date(occ);
+                if (ev.allDay) occStart.setHours(0, 0, 0, 0);
+                if (exSet.has(occStart.getTime())) continue;
+                const occEnd = duration ? new Date(occStart.getTime() + duration) : null;
+                result.push({
+                    uid: ev.uid + '_' + occStart.getTime(),
+                    summary: ev.summary,
+                    description: ev.description,
+                    location: ev.location,
+                    start: occStart,
+                    end: occEnd,
+                    allDay: ev.allDay
+                });
+            }
+        } catch {
+            result.push(ev);
+        }
+        delete ev._rrule; delete ev._dtstart_raw; delete ev._exdates;
+    }
+    return result;
+}
+
 function parseIcalDate(ds) {
     if (!ds) return null;
     if (ds.length === 8) return { date: new Date(parseInt(ds.substring(0, 4)), parseInt(ds.substring(4, 6)) - 1, parseInt(ds.substring(6, 8))), allDay: true };
