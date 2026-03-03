@@ -252,10 +252,15 @@ function expandRecurringEvents(events) {
         if (!ev._rrule) { result.push(ev); continue; }
         try {
             const duration = (ev.end && ev.start) ? ev.end.getTime() - ev.start.getTime() : 0;
-            const rruleStr = ev._dtstart_raw + '\nRRULE:' + ev._rrule;
-            const rule = (typeof rrulestr !== 'undefined' ? rrulestr : (window.rrule ? window.rrule.rrulestr : null));
-            if (!rule) { result.push(ev); continue; }
-            const parsed = rule(rruleStr);
+            // TZID を除去してローカル時刻としてrrule.jsに渡す（UTC変換による日付ずれ防止）
+            let dtLine = ev._dtstart_raw;
+            if (dtLine.includes('TZID=')) {
+                dtLine = dtLine.replace(/;TZID=[^:]+/, '');
+            }
+            const rruleStr = dtLine + '\nRRULE:' + ev._rrule;
+            const ruleFn = (typeof rrulestr !== 'undefined' ? rrulestr : (window.rrule ? window.rrule.rrulestr : null));
+            if (!ruleFn) { result.push(ev); continue; }
+            const parsed = ruleFn(rruleStr);
             const occurrences = parsed.between(rangeStart, rangeEnd, true);
             const exSet = new Set(ev._exdates || []);
             for (const occ of occurrences) {
@@ -347,7 +352,7 @@ function generateCalendarGrid(year, month) {
 }
 function mapEventsToGrid(grid, events) {
     if (!events || !events.length) return;
-    for (const ev of events) { if (!ev.start) continue; const es = new Date(ev.start); es.setHours(0, 0, 0, 0); const ee = ev.end ? new Date(ev.end) : new Date(es); ee.setHours(0, 0, 0, 0); if (ev.allDay && ev.end) ee.setDate(ee.getDate() - 1); for (const w of grid) for (const c of w) { const ct = c.date.getTime(); if (ct >= es.getTime() && ct <= ee.getTime()) { const ci = getEventColor(ev.summary); c.events.push({ ...ev, displayColor: ci.color, ruleLabel: ci.label }); } } }
+    for (const ev of events) { if (!ev.start) continue; const es = new Date(ev.start); es.setHours(0, 0, 0, 0); const ee = ev.end ? new Date(ev.end) : new Date(es); if (ev.allDay && ev.end) { ee.setHours(0, 0, 0, 0); ee.setDate(ee.getDate() - 1); } else { if (ee.getHours() === 0 && ee.getMinutes() === 0 && ee.getSeconds() === 0 && ee.getTime() > es.getTime()) { ee.setDate(ee.getDate() - 1); } ee.setHours(0, 0, 0, 0); } for (const w of grid) for (const c of w) { const ct = c.date.getTime(); if (ct >= es.getTime() && ct <= ee.getTime()) { const ci = getEventColor(ev.summary); c.events.push({ ...ev, displayColor: ci.color, ruleLabel: ci.label }); } } }
 }
 function mapLocalEventsToGrid(grid) {
     for (const ev of localEvents) {
